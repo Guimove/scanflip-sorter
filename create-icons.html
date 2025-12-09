@@ -1,0 +1,40 @@
+<!DOCTYPE html>
+<html>
+<head><title>Créer icônes</title></head>
+<body>
+<canvas id="canvas16" width="16" height="16"></canvas>
+<canvas id="canvas48" width="48" height="48"></canvas>
+<canvas id="canvas128" width="128" height="128"></canvas>
+<script>
+function createIcon(size) {
+  const canvas = document.getElementById('canvas' + size);
+  const ctx = canvas.getContext('2d');
+  
+  // Fond orange
+  ctx.fillStyle = '#ff8c00';
+  ctx.fillRect(0, 0, size, size);
+  
+  // Texte blanc
+  ctx.fillStyle = 'white';
+  ctx.font = 'bold ' + (size * 0.5) + 'px Arial';
+  ctx.textAlign = 'center';
+  ctx.textBaseline = 'middle';
+  ctx.fillText('%', size/2, size/2);
+  
+  // Télécharger
+  canvas.toBlob(blob => {
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = 'icon' + size + '.png';
+    a.click();
+  });
+}
+
+createIcon(16);
+setTimeout(() => createIcon(48), 500);
+setTimeout(() => createIcon(128), 1000);
+</script>
+<p>Les icônes vont se télécharger automatiquement. Placez-les dans le dossier scanflip-sorter.</p>
+</body>
+</html>

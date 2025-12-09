@@ -1,0 +1,17 @@
+# Fichiers système
+.DS_Store
+Thumbs.db
+
+# Fichiers de développement
+*.log
+*.swp
+*.swo
+*~
+
+# Fichiers d'extension empaquetée
+*.crx
+*.pem
+*.zip
+
+# Node modules (si on en ajoute plus tard)
+node_modules/

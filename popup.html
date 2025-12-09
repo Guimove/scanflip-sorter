@@ -1,0 +1,68 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="UTF-8">
+  <style>
+    body {
+      width: 300px;
+      padding: 20px;
+      font-family: Arial, sans-serif;
+    }
+    h1 {
+      font-size: 18px;
+      margin: 0 0 15px 0;
+      color: #333;
+    }
+    button {
+      width: 100%;
+      padding: 12px;
+      margin: 5px 0;
+      border: none;
+      border-radius: 5px;
+      cursor: pointer;
+      font-size: 14px;
+      font-weight: bold;
+      transition: background-color 0.3s;
+    }
+    #sortDesc {
+      background-color: #ff8c00;
+      color: white;
+    }
+    #sortDesc:hover {
+      background-color: #e67e00;
+    }
+    #sortAsc {
+      background-color: #4CAF50;
+      color: white;
+    }
+    #sortAsc:hover {
+      background-color: #45a049;
+    }
+    #status {
+      margin-top: 15px;
+      padding: 10px;
+      text-align: center;
+      font-size: 12px;
+      border-radius: 5px;
+      display: none;
+    }
+    #status.success {
+      background-color: #d4edda;
+      color: #155724;
+      display: block;
+    }
+    #status.error {
+      background-color: #f8d7da;
+      color: #721c24;
+      display: block;
+    }
+  </style>
+</head>
+<body>
+  <h1>ScanFlip Sorter</h1>
+  <button id="sortDesc">⬇ Trier par % décroissant</button>
+  <button id="sortAsc">⬆ Trier par % croissant</button>
+  <div id="status"></div>
+  <script src="popup.js"></script>
+</body>
+</html>
