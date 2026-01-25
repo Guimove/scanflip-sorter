@@ -13,6 +13,37 @@
       margin: 0 0 15px 0;
       color: #333;
     }
+    h2 {
+      font-size: 15px;
+      margin: 15px 0 10px 0;
+      color: #555;
+    }
+    .divider {
+      height: 1px;
+      background-color: #ddd;
+      margin: 15px 0;
+    }
+    .binder-inputs {
+      display: flex;
+      gap: 10px;
+      margin-bottom: 10px;
+    }
+    .input-group {
+      flex: 1;
+      display: flex;
+      flex-direction: column;
+    }
+    .input-group label {
+      font-size: 12px;
+      margin-bottom: 5px;
+      color: #666;
+    }
+    .input-group input {
+      padding: 8px;
+      border: 1px solid #ddd;
+      border-radius: 5px;
+      font-size: 14px;
+    }
     button {
       width: 100%;
       padding: 12px;
@@ -38,6 +69,20 @@
     #sortAsc:hover {
       background-color: #45a049;
     }
+    #groupByPages {
+      background-color: #2196F3;
+      color: white;
+    }
+    #groupByPages:hover {
+      background-color: #1976D2;
+    }
+    #resetGrouping {
+      background-color: #9E9E9E;
+      color: white;
+    }
+    #resetGrouping:hover {
+      background-color: #757575;
+    }
     #status {
       margin-top: 15px;
       padding: 10px;
@@ -62,6 +107,29 @@
   <h1>ScanFlip Sorter</h1>
   <button id="sortDesc">⬇ Trier par % décroissant</button>
   <button id="sortAsc">⬆ Trier par % croissant</button>
+
+  <div class="divider"></div>
+
+  <h2>Grouper par pages de classeur</h2>
+  <div class="binder-inputs">
+    <div class="input-group">
+      <label for="binderWidth">Largeur (cases):</label>
+      <input type="number" id="binderWidth" min="1" max="10" value="3">
+    </div>
+    <div class="input-group">
+      <label for="binderHeight">Hauteur (cases):</label>
+      <input type="number" id="binderHeight" min="1" max="10" value="3">
+    </div>
+  </div>
+  <div class="binder-inputs">
+    <div class="input-group">
+      <label for="startPosition">Commencer à la case:</label>
+      <input type="number" id="startPosition" min="1" max="100" value="1">
+    </div>
+  </div>
+  <button id="groupByPages">📑 Grouper par pages</button>
+  <button id="resetGrouping">↩ Réinitialiser</button>
+
   <div id="status"></div>
   <script src="popup.js"></script>
 </body>
