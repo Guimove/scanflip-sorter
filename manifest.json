@@ -1,8 +1,8 @@
 {
   "manifest_version": 3,
   "name": "ScanFlip Sorter",
-  "version": "1.0",
-  "description": "Trie les extensions Yu-Gi-Oh! par pourcentage de possession sur ScanFlip",
+  "version": "1.1",
+  "description": "Trie les extensions et groupe les cartes en pages de classeur sur ScanFlip (Yu-Gi-Oh!, Pokémon)",
   "permissions": [
     "activeTab",
     "scripting"

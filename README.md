@@ -11,7 +11,7 @@ Extension Chrome pour trier les extensions Yu-Gi-Oh! par pourcentage de possessi
 
 ## Utilisation
 
-1. Allez sur https://www.scanflip.fr/fr/yugioh/expansions
+1. Allez sur https://www.scanflip.fr/fr/yugioh/expansions (ou /fr/pokemon/expansions)
 2. Cliquez sur l'icône de l'extension dans la barre d'outils Chrome
 3. Choisissez le type de tri :
    - **⬇ Trier par % décroissant** : Affiche d'abord les extensions que vous possédez le plus
@@ -27,6 +27,6 @@ L'extension utilise des icônes par défaut. Pour personnaliser :
 
 Si l'extension ne fonctionne pas :
 - Vérifiez que vous êtes bien sur scanflip.fr
-- Vérifiez que vous êtes sur la page des extensions (/yugioh/expansions)
+- Vérifiez que vous êtes sur la page des extensions (/yugioh/expansions ou /pokemon/expansions)
 - Ouvrez la console développeur (F12) pour voir les logs
 - Rechargez l'extension dans chrome://extensions/

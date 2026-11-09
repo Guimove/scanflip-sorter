@@ -8,11 +8,15 @@ function showStatus(message, isError = false) {
   }, 3000);
 }
 
+const SUPPORTED_GAMES = 'yugioh|pokemon';
+const EXPANSIONS_URL = new RegExp(`scanflip\\.fr/[a-z]{2}/(${SUPPORTED_GAMES})/expansions`);
+const CARDS_URL = new RegExp(`scanflip\\.fr/[a-z]{2}/(${SUPPORTED_GAMES})/cards`);
+
 async function sortCards(ascending = false) {
   try {
     const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
 
-    if (!tab.url.includes('scanflip.fr/fr/yugioh/expansions')) {
+    if (!EXPANSIONS_URL.test(tab.url)) {
       showStatus('Le tri fonctionne uniquement sur la page des extensions', true);
       return;
     }
@@ -31,7 +35,16 @@ async function sortCards(ascending = false) {
 
 function sortExtensions(ascending) {
   // Trouve le conteneur grid avec un sélecteur plus précis
-  const container = document.querySelector('.grid.grid-cols-2.sm\\:grid-cols-2.md\\:grid-cols-2.lg\\:grid-cols-3.xl\\:grid-cols-4.gap-2.lg\\:gap-4');
+  let container = document.querySelector('.grid.grid-cols-2.sm\\:grid-cols-2.md\\:grid-cols-2.lg\\:grid-cols-3.xl\\:grid-cols-4.gap-2.lg\\:gap-4');
+
+  if (!container) {
+    // Fallback (Pokémon, changements de layout) : la grille dont la majorité des enfants affiche un %
+    container = Array.from(document.querySelectorAll('.grid')).find(grid => {
+      const children = Array.from(grid.children);
+      return children.length > 1 &&
+        children.filter(c => /\d\s*%/.test(c.textContent)).length >= children.length / 2;
+    });
+  }
 
   if (!container) {
     alert('Impossible de trouver le conteneur des extensions');
@@ -39,9 +52,12 @@ function sortExtensions(ascending) {
   }
 
   // Récupère toutes les cartes d'extensions (enfants directs du grid)
-  const cards = Array.from(container.children).filter(child =>
+  let cards = Array.from(container.children).filter(child =>
     child.classList.contains('sfcard') || child.querySelector('.sfcard')
   );
+  if (cards.length === 0) {
+    cards = Array.from(container.children);
+  }
 
   if (cards.length === 0) {
     alert('Aucune extension trouvée sur cette page');
@@ -56,8 +72,8 @@ function sortExtensions(ascending) {
     const allText = card.textContent;
 
     // Cherche un pattern comme "X/Y Complet (Z%)" ou juste "(Z%)"
-    const percentMatch = allText.match(/\((\d+(?:\.\d+)?)\s*%\)/);
-    const percent = percentMatch ? parseFloat(percentMatch[1]) : 0;
+    const percentMatch = allText.match(/\((\d+(?:[.,]\d+)?)\s*%\)/) || allText.match(/(\d+(?:[.,]\d+)?)\s*%/);
+    const percent = percentMatch ? parseFloat(percentMatch[1].replace(',', '.')) : 0;
 
     // Extrait le nom de l'extension
     const nameElement = card.querySelector('.font-bold');
@@ -96,7 +112,7 @@ async function groupByBinderPages() {
   try {
     const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
 
-    if (!tab.url.includes('scanflip.fr/fr/yugioh/cards')) {
+    if (!CARDS_URL.test(tab.url)) {
       showStatus('Le groupement fonctionne uniquement sur la page des cartes', true);
       return;
     }
@@ -131,7 +147,7 @@ async function resetGrouping() {
   try {
     const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
 
-    if (!tab.url.includes('scanflip.fr/fr/yugioh/cards')) {
+    if (!CARDS_URL.test(tab.url)) {
       showStatus('Le groupement fonctionne uniquement sur la page des cartes', true);
       return;
     }
@@ -148,19 +164,24 @@ async function resetGrouping() {
 }
 
 function groupCardsByPages(width, height, startPosition = 1) {
-  // Cherche le conteneur grid des cartes Yu-Gi-Oh
-  const container = document.querySelector('.grid.grid-cols-2.md\\:grid-cols-4.lg\\:grid-cols-4.xl\\:grid-cols-5.gap-4');
+  // Cherche le conteneur grid des cartes (Yu-Gi-Oh / Pokémon). Si un groupement est actif, on le réutilise.
+  let container = document.querySelector('[data-binder-mode="active"]') ||
+    document.querySelector('.grid.grid-cols-2.md\\:grid-cols-4.lg\\:grid-cols-4.xl\\:grid-cols-5.gap-4');
 
   if (!container) {
-    alert('Impossible de trouver le conteneur des cartes. Assurez-vous d\'être sur la page /fr/yugioh/cards');
+    alert('Impossible de trouver le conteneur des cartes. Assurez-vous d\'être sur une page /cards (Yu-Gi-Oh ou Pokémon)');
     return;
   }
 
+  // Si un groupement est déjà actif, récupère les cartes depuis les pages existantes
+  const isRegroup = container.dataset.binderMode === 'active';
+  const cards = isRegroup
+    ? Array.from(container.querySelectorAll('.binder-page-wrapper > *')).filter(el =>
+        !el.classList.contains('binder-placeholder') && !el.classList.contains('binder-page-label'))
+    : Array.from(container.children);
+
   // Supprime les séparateurs et wrapper existants
   document.querySelectorAll('.binder-page-separator, .binder-page-wrapper, .binder-placeholder').forEach(elem => elem.remove());
-
-  // Récupère toutes les cartes (enfants directs du conteneur)
-  const cards = Array.from(container.children);
 
   if (cards.length === 0) {
     alert('Aucune carte trouvée sur cette page');
@@ -172,9 +193,9 @@ function groupCardsByPages(width, height, startPosition = 1) {
   const totalCardsWithOffset = cards.length + offset;
   const totalPages = Math.ceil(totalCardsWithOffset / cardsPerPage);
 
-  // Sauvegarde les styles originaux du conteneur
-  const originalGridStyles = container.className;
-  const originalStyles = container.style.cssText;
+  // Sauvegarde les styles originaux du conteneur (une seule fois)
+  const originalGridStyles = isRegroup ? container.dataset.originalGridStyles : container.className;
+  const originalStyles = isRegroup ? container.dataset.originalStyles : container.style.cssText;
 
   // Modifie le conteneur pour afficher en grille selon les dimensions du classeur
   container.style.cssText = `
@@ -290,6 +311,7 @@ function groupCardsByPages(width, height, startPosition = 1) {
 
     // Ajoute un indicateur de page en haut à gauche
     const pageLabel = document.createElement('div');
+    pageLabel.className = 'binder-page-label';
     pageLabel.style.cssText = `
       position: absolute;
       top: -12px;
@@ -328,7 +350,7 @@ function removePageSeparators() {
   wrappers.forEach(wrapper => {
     const wrapperCards = Array.from(wrapper.children).filter(child =>
       !child.classList.contains('binder-placeholder') &&
-      child.tagName === 'A' // Les cartes sont des liens <a>
+      !child.classList.contains('binder-page-label')
     );
     cards.push(...wrapperCards);
   });
