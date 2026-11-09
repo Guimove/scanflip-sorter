@@ -69,6 +69,13 @@
     #sortAsc:hover {
       background-color: #45a049;
     }
+    #exportCsv {
+      background-color: #9C27B0;
+      color: white;
+    }
+    #exportCsv:hover {
+      background-color: #7B1FA2;
+    }
     #groupByPages {
       background-color: #2196F3;
       color: white;
@@ -82,6 +89,27 @@
     }
     #resetGrouping:hover {
       background-color: #757575;
+    }
+    #copyCardList {
+      background-color: #FF5722;
+      color: white;
+    }
+    #copyCardList:hover {
+      background-color: #E64A19;
+    }
+    #copyMissing {
+      background-color: #E91E63;
+      color: white;
+    }
+    #copyMissing:hover {
+      background-color: #C2185B;
+    }
+    #copyMissingCM {
+      background-color: #00897B;
+      color: white;
+    }
+    #copyMissingCM:hover {
+      background-color: #00695C;
     }
     #status {
       margin-top: 15px;
@@ -107,6 +135,7 @@
   <h1>ScanFlip Sorter</h1>
   <button id="sortDesc">⬇ Trier par % décroissant</button>
   <button id="sortAsc">⬆ Trier par % croissant</button>
+  <button id="exportCsv">📥 Télécharger le CSV</button>
 
   <div class="divider"></div>
 
@@ -129,6 +158,9 @@
   </div>
   <button id="groupByPages">📑 Grouper par pages</button>
   <button id="resetGrouping">↩ Réinitialiser</button>
+  <button id="copyCardList">📋 Copier liste des cartes</button>
+  <button id="copyMissing">📋 Copier cartes manquantes</button>
+  <button id="copyMissingCM">🛒 Manquantes → Cardmarket</button>
 
   <div id="status"></div>
   <script src="popup.js"></script>
