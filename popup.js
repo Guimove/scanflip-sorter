@@ -5,11 +5,14 @@ const SUPPORTED_GAMES = 'yugioh|pokemon';
 const EXPANSIONS_URL = new RegExp(`scanflip\\.fr/[a-z]{2}/(${SUPPORTED_GAMES})/expansions`);
 const CARDS_URL = new RegExp(`scanflip\\.fr/[a-z]{2}/(${SUPPORTED_GAMES})/cards`);
 
+let statusTimeout;
+
 function showStatus(message, isError = false) {
   const status = document.getElementById('status');
   status.textContent = message;
   status.className = isError ? 'error' : 'success';
-  setTimeout(() => { status.style.display = 'none'; }, 3000);
+  clearTimeout(statusTimeout);
+  statusTimeout = setTimeout(() => { status.className = ''; }, 3000);
 }
 
 async function runOnTab(urlPattern, errorMessage, func, args = []) {
@@ -241,8 +244,8 @@ function removePageSeparators() {
       .forEach(card => cards.push(card));
   });
 
-  if (container.dataset.originalGridStyles) container.className = container.dataset.originalGridStyles;
-  if (container.dataset.originalStyles) container.style.cssText = container.dataset.originalStyles;
+  if (container.dataset.originalGridStyles !== undefined) container.className = container.dataset.originalGridStyles;
+  container.style.cssText = container.dataset.originalStyles || '';
   delete container.dataset.binderMode;
   delete container.dataset.originalGridStyles;
   delete container.dataset.originalStyles;
@@ -324,7 +327,13 @@ function extractCardData(selector) {
   const container = document.querySelector(selector);
   if (!container) return [];
 
-  return Array.from(container.children).map(card => {
+  // Si un groupement est actif, les cartes sont dans les pages du classeur
+  const cards = container.dataset.binderMode === 'active'
+    ? Array.from(container.querySelectorAll('.binder-page-wrapper > *')).filter(el =>
+        !el.classList.contains('binder-placeholder') && !el.classList.contains('binder-page-label'))
+    : Array.from(container.children);
+
+  return cards.map(card => {
     const nameEl = card.querySelector('.font-bold');
     const name = nameEl ? nameEl.textContent.trim() : '';
     const codeEl = card.querySelector('span.min-w-fit.text-xs.text-muted-foreground.font-bold');

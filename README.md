@@ -1,6 +1,6 @@
 # ScanFlip Sorter - Extension Chrome
 
-Extension Chrome pour trier les extensions Yu-Gi-Oh! par pourcentage de possession sur ScanFlip.
+Extension Chrome pour ScanFlip (Yu-Gi-Oh! et Pokémon) : tri des extensions par pourcentage de possession, export CSV, regroupement des cartes en pages de classeur et copie des listes de cartes.
 
 ## Installation
 
@@ -11,11 +11,21 @@ Extension Chrome pour trier les extensions Yu-Gi-Oh! par pourcentage de possessi
 
 ## Utilisation
 
-1. Allez sur https://www.scanflip.fr/fr/yugioh/expansions (ou /fr/pokemon/expansions)
-2. Cliquez sur l'icône de l'extension dans la barre d'outils Chrome
-3. Choisissez le type de tri :
-   - **⬇ Trier par % décroissant** : Affiche d'abord les extensions que vous possédez le plus
-   - **⬆ Trier par % croissant** : Affiche d'abord les extensions que vous possédez le moins
+### Page des extensions
+
+Sur https://www.scanflip.fr/fr/yugioh/expansions (ou /fr/pokemon/expansions), cliquez sur l'icône de l'extension :
+- **⬇ Trier par % décroissant** : Affiche d'abord les extensions que vous possédez le plus
+- **⬆ Trier par % croissant** : Affiche d'abord les extensions que vous possédez le moins
+- **📥 Télécharger le CSV** : Exporte les extensions (nom, ID, % de complétion, cartes possédées, total, date de sortie). Les colonnes sont séparées par `$`.
+
+### Page des cartes
+
+Sur une page de cartes (/fr/yugioh/cards ou /fr/pokemon/cards) :
+- **📑 Grouper par pages** : Répartit les cartes en pages de classeur selon la largeur et la hauteur choisies. « Commencer à la case » permet de sauter les cases déjà occupées sur la première page.
+- **↩ Réinitialiser** : Rétablit l'affichage d'origine
+- **📋 Copier liste des cartes** : Copie toutes les cartes (`Nom CODE`) dans le presse-papiers
+- **📋 Copier cartes manquantes** : Copie uniquement les cartes non possédées
+- **🛒 Manquantes → Cardmarket** : Copie les cartes manquantes au format de la liste d'achat Cardmarket (`1 Nom (SET)`)
 
 ## Note sur les icônes
 
@@ -27,6 +37,6 @@ L'extension utilise des icônes par défaut. Pour personnaliser :
 
 Si l'extension ne fonctionne pas :
 - Vérifiez que vous êtes bien sur scanflip.fr
-- Vérifiez que vous êtes sur la page des extensions (/yugioh/expansions ou /pokemon/expansions)
+- Vérifiez que vous êtes sur la bonne page : extensions (/expansions) pour le tri et l'export, cartes (/cards) pour le groupement et la copie
 - Ouvrez la console développeur (F12) pour voir les logs
 - Rechargez l'extension dans chrome://extensions/
