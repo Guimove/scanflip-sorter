@@ -16,16 +16,18 @@ Extension Chrome pour ScanFlip (Yu-Gi-Oh! et Pokémon) : tri des extensions par 
 Sur https://www.scanflip.fr/fr/yugioh/expansions (ou /fr/pokemon/expansions), cliquez sur l'icône de l'extension :
 - **⬇ Trier par % décroissant** : Affiche d'abord les extensions que vous possédez le plus
 - **⬆ Trier par % croissant** : Affiche d'abord les extensions que vous possédez le moins
-- **📥 Télécharger le CSV** : Exporte les extensions (nom, ID, % de complétion, cartes possédées, total, date de sortie). Les colonnes sont séparées par `$`.
+- **📥 Télécharger le CSV** : Exporte les extensions (nom, ID, % de complétion, cartes possédées, total, date de sortie). Les colonnes sont séparées par `$` (les valeurs contenant `$` ou `"` sont entre guillemets). Les dates sont reconnues quelle que soit la langue du site.
 
 ### Page des cartes
 
 Sur une page de cartes (/fr/yugioh/cards ou /fr/pokemon/cards) :
 - **📑 Grouper par pages** : Répartit les cartes en pages de classeur selon la largeur et la hauteur choisies. « Commencer à la case » permet de sauter les cases déjà occupées sur la première page.
-- **↩ Réinitialiser** : Rétablit l'affichage d'origine
+- **↩ Réinitialiser** : Rétablit l'affichage d'origine. Le popup indique si un classeur est actif.
 - **📋 Copier liste des cartes** : Copie toutes les cartes (`Nom CODE`) dans le presse-papiers
-- **📋 Copier cartes manquantes** : Copie uniquement les cartes non possédées
-- **🛒 Manquantes → Cardmarket** : Copie les cartes manquantes au format de la liste d'achat Cardmarket (`1 Nom (SET)`)
+- **📋 Copier cartes manquantes** : Copie uniquement les cartes non possédées (détectées via le badge « Modifier dans ma collection », indépendamment du réglage « griser les cartes »)
+- **🛒 Manquantes → Cardmarket** : Copie les cartes manquantes au format de la liste d'achat Cardmarket (`1 Nom (SET)` pour Yu-Gi-Oh, `1 Nom (Nom de l'extension)` pour Pokémon)
+
+Seule la page de résultats affichée est traitée : si les résultats sont paginés, un avertissement s'affiche.
 
 ## Note sur les icônes
 

@@ -1,9 +1,10 @@
 const EXPANSIONS_SELECTOR = '.grid.grid-cols-2.sm\\:grid-cols-2.md\\:grid-cols-2.lg\\:grid-cols-3.xl\\:grid-cols-4.gap-2.lg\\:gap-4';
 const CARDS_SELECTOR = '.grid.grid-cols-2.md\\:grid-cols-4.lg\\:grid-cols-4.xl\\:grid-cols-5.gap-4';
 
+// Locale optionnelle : /fr/pokemon/cards comme /pokemon/cards
 const SUPPORTED_GAMES = 'yugioh|pokemon';
-const EXPANSIONS_URL = new RegExp(`scanflip\\.fr/[a-z]{2}/(${SUPPORTED_GAMES})/expansions`);
-const CARDS_URL = new RegExp(`scanflip\\.fr/[a-z]{2}/(${SUPPORTED_GAMES})/cards`);
+const EXPANSIONS_URL = new RegExp(`scanflip\\.fr/(?:[a-z]{2}/)?(${SUPPORTED_GAMES})/expansions`);
+const CARDS_URL = new RegExp(`scanflip\\.fr/(?:[a-z]{2}/)?(${SUPPORTED_GAMES})/cards`);
 
 let statusTimeout;
 
@@ -12,81 +13,80 @@ function showStatus(message, isError = false) {
   status.textContent = message;
   status.className = isError ? 'error' : 'success';
   clearTimeout(statusTimeout);
-  statusTimeout = setTimeout(() => { status.className = ''; }, 3000);
+  statusTimeout = setTimeout(() => { status.className = ''; }, isError ? 5000 : 3000);
 }
 
+// Injecte page-helpers.js puis la fonction. Les fonctions injectées renvoient { ok, error?, warning?, ... }.
+// Renvoie { value, game } ou null si la page ne correspond pas ou si l'action a échoué (statut déjà affiché).
 async function runOnTab(urlPattern, errorMessage, func, args = []) {
   const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
-  if (!urlPattern.test(tab.url)) {
+  const match = tab && tab.url ? tab.url.match(urlPattern) : null;
+  if (!match) {
     showStatus(errorMessage, true);
     return null;
   }
-  const [result] = await chrome.scripting.executeScript({
-    target: { tabId: tab.id },
-    func,
-    args
-  });
-  return result;
+  await chrome.scripting.executeScript({ target: { tabId: tab.id }, files: ['page-helpers.js'] });
+  const [injection] = await chrome.scripting.executeScript({ target: { tabId: tab.id }, func, args });
+  const value = injection ? injection.result : null;
+  if (!value || !value.ok) {
+    showStatus((value && value.error) || 'Erreur inconnue sur la page', true);
+    return null;
+  }
+  return { value, game: match[1] };
 }
 
-// --- Fonctions exécutées dans le contexte de la page ---
+function withWarning(message, value) {
+  return value.warning ? `${message} ⚠ ${value.warning}` : message;
+}
+
+// --- Fonctions exécutées dans le contexte de la page (ScanFlipHelpers est injecté avant) ---
 
 function sortExtensions(ascending, selector) {
-  let container = document.querySelector(selector);
-  if (!container) {
-    // Fallback (Pokémon, changements de layout) : la grille dont la majorité des enfants affiche un %
-    container = Array.from(document.querySelectorAll('.grid')).find(grid => {
-      const children = Array.from(grid.children);
-      return children.length > 1 &&
-        children.filter(c => /\d\s*%/.test(c.textContent)).length >= children.length / 2;
-    });
-  }
-  if (!container) { alert('Impossible de trouver le conteneur des extensions'); return; }
+  const H = globalThis.ScanFlipHelpers;
+  const container = H.findExpansionsGrid(selector);
+  if (!container) return { ok: false, error: 'Impossible de trouver le conteneur des extensions' };
 
-  let cards = Array.from(container.children).filter(child =>
-    child.classList.contains('sfcard') || child.querySelector('.sfcard')
-  );
-  if (cards.length === 0) cards = Array.from(container.children);
-  if (cards.length === 0) { alert('Aucune extension trouvée sur cette page'); return; }
+  const cards = H.getExpansionCards(container);
+  if (cards.length === 0) return { ok: false, error: 'Aucune extension trouvée sur cette page' };
 
-  const sorted = cards
-    .map(card => {
-      const match = card.textContent.match(/\((\d+(?:[.,]\d+)?)\s*%\)/) || card.textContent.match(/(\d+(?:[.,]\d+)?)\s*%/);
-      return { element: card, percent: match ? parseFloat(match[1].replace(',', '.')) : 0 };
-    })
-    .sort((a, b) => ascending ? a.percent - b.percent : b.percent - a.percent);
+  cards
+    .map(card => ({ element: card, percent: H.getPercent(card) }))
+    .sort((a, b) => ascending ? a.percent - b.percent : b.percent - a.percent)
+    .forEach(item => container.appendChild(item.element));
 
-  sorted.forEach(item => container.appendChild(item.element));
+  return { ok: true, count: cards.length };
 }
 
 function extractExtensionsData(selector) {
-  const MONTH_MAP = {
-    janvier: '01', 'février': '02', mars: '03', avril: '04', mai: '05', juin: '06',
-    juillet: '07', 'août': '08', septembre: '09', octobre: '10', novembre: '11', 'décembre': '12'
-  };
+  const H = globalThis.ScanFlipHelpers;
 
-  let container = document.querySelector(selector);
-  if (!container) {
-    // Fallback (Pokémon, changements de layout) : la grille dont la majorité des enfants affiche un %
-    container = Array.from(document.querySelectorAll('.grid')).find(grid => {
-      const children = Array.from(grid.children);
-      return children.length > 1 &&
-        children.filter(c => /\d\s*%/.test(c.textContent)).length >= children.length / 2;
+  // Mois dans la langue de la page (+ fr/en par défaut), sans dépendre de libellés traduits
+  const monthMap = {};
+  const strip = s => s.normalize('NFD').replace(/[̀-ͯ]/g, '').replace(/\.$/, '');
+  const langs = [document.documentElement.lang || 'fr', 'fr', 'en'];
+  langs.forEach(lang => {
+    ['long', 'short'].forEach(style => {
+      try {
+        const fmt = new Intl.DateTimeFormat(lang, { month: style });
+        for (let m = 0; m < 12; m++) {
+          const label = fmt.format(new Date(2000, m, 1)).toLowerCase();
+          monthMap[strip(label)] = String(m + 1).padStart(2, '0');
+        }
+      } catch (e) { /* locale inconnue */ }
     });
-  }
-  if (!container) return [];
+  });
 
-  let cards = Array.from(container.children).filter(child =>
-    child.classList.contains('sfcard') || child.querySelector('.sfcard')
-  );
-  if (cards.length === 0) cards = Array.from(container.children);
+  const container = H.findExpansionsGrid(selector);
+  if (!container) return { ok: false, error: 'Impossible de trouver le conteneur des extensions' };
 
-  return cards.map(card => {
-    const percentMatch = card.textContent.match(/\((\d+(?:[.,]\d+)?)\s*%\)/) || card.textContent.match(/(\d+(?:[.,]\d+)?)\s*%/);
-    const percent = percentMatch ? parseFloat(percentMatch[1].replace(',', '.')) : 0;
+  const data = H.getExpansionCards(container).map(card => {
+    const percent = H.getPercent(card);
 
-    const completionP = Array.from(card.querySelectorAll('p')).find(p => /Complet/i.test(p.textContent));
-    const countMatch = completionP ? completionP.textContent.match(/(\d+)\s*\/\s*(\d+)\s*Complet/i) : null;
+    // "12 / 120 Complet", "12 / 120 Complete"... : premier texte "nombre / nombre"
+    const countEl = Array.from(card.querySelectorAll('p, div, span'))
+      .find(el => el.children.length === 0 && /^\s*\d+\s*\/\s*\d+/.test(el.textContent))
+      || Array.from(card.querySelectorAll('p')).find(p => /\d+\s*\/\s*\d+/.test(p.textContent));
+    const countMatch = countEl ? countEl.textContent.match(/(\d+)\s*\/\s*(\d+)/) : null;
     const owned = countMatch ? parseInt(countMatch[1]) : 0;
     const total = countMatch ? parseInt(countMatch[2]) : 0;
 
@@ -98,30 +98,31 @@ function extractExtensionsData(selector) {
     const idMatch = href.match(/expansion=([^&]+)/);
     const id = idMatch ? idMatch[1] : '';
 
-    const dateLabel = Array.from(card.querySelectorAll('div')).find(d => d.textContent.trim() === 'A débuté en');
-    const rawDate = dateLabel && dateLabel.nextElementSibling ? dateLabel.nextElementSibling.textContent.trim() : '';
-    const dateParts = rawDate.match(/(\S+)\s+(\d{4})/);
-    const date = dateParts ? `${dateParts[2]}/${MONTH_MAP[dateParts[1].toLowerCase()] || '00'}` : '';
+    // Date : texte "mois AAAA" dont le mois est reconnu, quel que soit le libellé qui le précède
+    let date = '';
+    for (const el of card.querySelectorAll('div, span, p')) {
+      if (el.children.length > 0) continue;
+      const parts = el.textContent.trim().match(/^(\S+)\s+(\d{4})$/);
+      const month = parts ? monthMap[strip(parts[1].toLowerCase())] : null;
+      if (month) { date = `${parts[2]}/${month}`; break; }
+    }
 
     return { name, id, percent, owned, total, date };
   });
+
+  return { ok: true, data };
 }
 
 function groupCardsByPages(width, height, startPosition, selector) {
-  // Si un groupement est actif, on réutilise son conteneur
-  const container = document.querySelector('[data-binder-mode="active"]') || document.querySelector(selector);
-  if (!container) { alert('Impossible de trouver le conteneur des cartes. Assurez-vous d\'être sur une page /cards (Yu-Gi-Oh ou Pokémon)'); return; }
+  const H = globalThis.ScanFlipHelpers;
+  const container = H.findCardsContainer(selector);
+  if (!container) return { ok: false, error: "Impossible de trouver le conteneur des cartes. Assurez-vous d'être sur une page /cards (Yu-Gi-Oh ou Pokémon)" };
 
-  // Si un groupement est déjà actif, récupère les cartes depuis les pages existantes
   const isRegroup = container.dataset.binderMode === 'active';
-  const cards = isRegroup
-    ? Array.from(container.querySelectorAll('.binder-page-wrapper > *')).filter(el =>
-        !el.classList.contains('binder-placeholder') && !el.classList.contains('binder-page-label'))
-    : Array.from(container.children);
+  const cards = H.getCards(container);
+  if (cards.length === 0) return { ok: false, error: 'Aucune carte trouvée sur cette page' };
 
-  document.querySelectorAll('.binder-page-separator, .binder-page-wrapper, .binder-placeholder').forEach(el => el.remove());
-
-  if (cards.length === 0) { alert('Aucune carte trouvée sur cette page'); return; }
+  container.querySelectorAll('.binder-page-separator, .binder-page-wrapper, .binder-placeholder').forEach(el => el.remove());
 
   const cardsPerPage = width * height;
   const offset = startPosition - 1;
@@ -177,11 +178,10 @@ function groupCardsByPages(width, height, startPosition, selector) {
         background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
         border-radius: 10px; box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
       `;
-      separator.innerHTML = `
-        <div style="color: white; font-weight: bold; font-size: 16px; text-shadow: 0 2px 4px rgba(0, 0, 0, 0.2);">
-          📄 Page ${page + 1} / ${totalPages}
-        </div>
-      `;
+      const title = document.createElement('div');
+      title.style.cssText = 'color: white; font-weight: bold; font-size: 16px; text-shadow: 0 2px 4px rgba(0, 0, 0, 0.2);';
+      title.textContent = `📄 Page ${page + 1} / ${totalPages}`;
+      separator.appendChild(title);
       container.appendChild(separator);
     }
 
@@ -231,18 +231,21 @@ function groupCardsByPages(width, height, startPosition, selector) {
 
     container.appendChild(pageWrapper);
   }
+
+  return {
+    ok: true,
+    count: cards.length,
+    pages: totalPages,
+    warning: H.hasPagination() ? 'Seule la page de résultats affichée est groupée.' : undefined
+  };
 }
 
 function removePageSeparators() {
+  const H = globalThis.ScanFlipHelpers;
   const container = document.querySelector('[data-binder-mode="active"]');
-  if (!container) return;
+  if (!container) return { ok: false, error: 'Aucun groupement actif sur cette page' };
 
-  const cards = [];
-  container.querySelectorAll('.binder-page-wrapper').forEach(wrapper => {
-    Array.from(wrapper.children)
-      .filter(child => !child.classList.contains('binder-placeholder') && !child.classList.contains('binder-page-label'))
-      .forEach(card => cards.push(card));
-  });
+  const cards = H.getCards(container);
 
   if (container.dataset.originalGridStyles !== undefined) container.className = container.dataset.originalGridStyles;
   container.style.cssText = container.dataset.originalStyles || '';
@@ -250,51 +253,127 @@ function removePageSeparators() {
   delete container.dataset.originalGridStyles;
   delete container.dataset.originalStyles;
 
-  container.innerHTML = '';
   cards.forEach(card => {
     card.style.maxWidth = '';
     card.style.margin = '';
-    container.appendChild(card);
   });
+  container.replaceChildren(...cards);
+
+  return { ok: true, count: cards.length };
+}
+
+function getBinderState() {
+  const container = document.querySelector('[data-binder-mode="active"]');
+  return {
+    ok: true,
+    active: !!container,
+    pages: container ? container.querySelectorAll('.binder-page-wrapper').length : 0
+  };
+}
+
+function extractCardData(selector) {
+  const H = globalThis.ScanFlipHelpers;
+  const container = H.findCardsContainer(selector);
+  if (!container) return { ok: false, error: 'Impossible de trouver le conteneur des cartes' };
+
+  const cards = H.getCards(container);
+  const OWNED_BADGE = '[title="Modifier dans ma collection"]';
+  // Le badge "Modifier dans ma collection" ne dépend pas du réglage "griser les cartes non possédées".
+  // Sans aucun badge (déconnecté, ou rien de possédé), on retombe sur l'image grisée.
+  const useBadge = !!container.querySelector(OWNED_BADGE);
+
+  const data = cards.map(card => {
+    const nameEl = card.querySelector('.font-bold');
+    const name = nameEl ? nameEl.textContent.trim() : '';
+    const codeEl = card.querySelector('span.min-w-fit.text-xs.text-muted-foreground.font-bold');
+    const code = codeEl ? codeEl.textContent.trim() : '';
+    const setEl = card.querySelector('.italic.text-muted-foreground');
+    const setName = setEl ? setEl.textContent.trim() : '';
+
+    let owned;
+    if (useBadge) {
+      const badge = card.querySelector(OWNED_BADGE);
+      const qty = badge ? parseInt(badge.textContent.replace(/\D/g, ''), 10) : 0;
+      owned = !!badge && (isNaN(qty) || qty > 0);
+    } else {
+      const img = card.querySelector('img[class*="aspect-"]');
+      owned = img ? !img.classList.contains('grayscale-100') : false;
+    }
+
+    return name && code ? { name, code, setName, owned } : null;
+  }).filter(Boolean);
+
+  return {
+    ok: true,
+    data,
+    warning: H.hasPagination() ? 'Seule la page de résultats affichée est copiée.' : undefined
+  };
 }
 
 // --- Actions du popup ---
 
 async function sortCards(ascending = false) {
   try {
-    if (!await runOnTab(EXPANSIONS_URL, 'Le tri fonctionne uniquement sur la page des extensions', sortExtensions, [ascending, EXPANSIONS_SELECTOR])) return;
-    showStatus('✓ Extensions triées !');
+    const res = await runOnTab(EXPANSIONS_URL, 'Le tri fonctionne uniquement sur la page des extensions', sortExtensions, [ascending, EXPANSIONS_SELECTOR]);
+    if (!res) return;
+    showStatus(`✓ ${res.value.count} extensions triées !`);
   } catch (error) {
     showStatus('Erreur: ' + error.message, true);
   }
 }
 
+function csvField(value, separator) {
+  const text = String(value ?? '');
+  return text.includes(separator) || /["\r\n]/.test(text) ? `"${text.replace(/"/g, '""')}"` : text;
+}
+
 async function exportCsv() {
   try {
-    const result = await runOnTab(EXPANSIONS_URL, "L'export fonctionne uniquement sur la page des extensions", extractExtensionsData, [EXPANSIONS_SELECTOR]);
-    if (!result) return;
+    const res = await runOnTab(EXPANSIONS_URL, "L'export fonctionne uniquement sur la page des extensions", extractExtensionsData, [EXPANSIONS_SELECTOR]);
+    if (!res) return;
 
-    const data = result.result;
+    const data = res.value.data;
     if (!data || data.length === 0) { showStatus('Aucune donnée à exporter', true); return; }
 
     const separator = '$';
-    const header = ['Nom', 'ID', 'Completion (%)', 'Possédées', 'Total', 'Date de sortie'].join(separator);
-    const lines = data.map(item =>
-      [item.name, item.id, item.percent, item.owned, item.total, item.date].join(separator)
-    );
+    const toLine = fields => fields.map(f => csvField(f, separator)).join(separator);
+    const header = toLine(['Nom', 'ID', 'Completion (%)', 'Possédées', 'Total', 'Date de sortie']);
+    const lines = data.map(item => toLine([item.name, item.id, item.percent, item.owned, item.total, item.date]));
     const csvContent = [header, ...lines].join('\n');
 
-    const blob = new Blob(['\uFEFF' + csvContent], { type: 'text/csv;charset=utf-8;' });
+    const blob = new Blob(['﻿' + csvContent], { type: 'text/csv;charset=utf-8;' });
     const url = URL.createObjectURL(blob);
     const a = document.createElement('a');
     a.href = url;
-    a.download = 'scanflip-extensions.csv';
+    a.download = `scanflip-${res.game}-extensions.csv`;
     a.click();
     URL.revokeObjectURL(url);
 
     showStatus(`✓ CSV exporté (${data.length} extensions) !`);
   } catch (error) {
     showStatus('Erreur: ' + error.message, true);
+  }
+}
+
+async function refreshBinderState() {
+  const el = document.getElementById('binderState');
+  const resetBtn = document.getElementById('resetGrouping');
+  try {
+    const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
+    if (!tab || !tab.url || !CARDS_URL.test(tab.url)) {
+      el.textContent = '';
+      resetBtn.disabled = true;
+      return;
+    }
+    const [injection] = await chrome.scripting.executeScript({ target: { tabId: tab.id }, func: getBinderState });
+    const state = injection && injection.result;
+    const active = !!(state && state.active);
+    el.textContent = active ? `● Classeur actif (${state.pages} pages)` : '○ Aucun classeur actif';
+    el.className = active ? 'active' : '';
+    resetBtn.disabled = !active;
+  } catch (error) {
+    el.textContent = '';
+    resetBtn.disabled = false;
   }
 }
 
@@ -307,67 +386,56 @@ async function groupByBinderPages() {
     if (!width || !height || width < 1 || height < 1) { showStatus('Veuillez entrer des dimensions valides', true); return; }
     if (!startPosition || startPosition < 1) { showStatus('La position de départ doit être au minimum 1', true); return; }
 
-    if (!await runOnTab(CARDS_URL, 'Le groupement fonctionne uniquement sur la page des cartes', groupCardsByPages, [width, height, startPosition, CARDS_SELECTOR])) return;
-    showStatus(`✓ Cartes groupées par pages de ${width}x${height} (départ: case ${startPosition}) !`);
+    const res = await runOnTab(CARDS_URL, 'Le groupement fonctionne uniquement sur la page des cartes', groupCardsByPages, [width, height, startPosition, CARDS_SELECTOR]);
+    if (!res) return;
+    showStatus(withWarning(`✓ ${res.value.count} cartes en ${res.value.pages} pages de ${width}x${height} (départ: case ${startPosition}) !`, res.value));
   } catch (error) {
     showStatus('Erreur: ' + error.message, true);
+  } finally {
+    refreshBinderState();
   }
 }
 
 async function resetGrouping() {
   try {
-    if (!await runOnTab(CARDS_URL, 'Le groupement fonctionne uniquement sur la page des cartes', removePageSeparators)) return;
+    const res = await runOnTab(CARDS_URL, 'Le groupement fonctionne uniquement sur la page des cartes', removePageSeparators);
+    if (!res) return;
     showStatus('✓ Groupement réinitialisé !');
   } catch (error) {
     showStatus('Erreur: ' + error.message, true);
+  } finally {
+    refreshBinderState();
   }
 }
 
-function extractCardData(selector) {
-  const container = document.querySelector(selector);
-  if (!container) return [];
-
-  // Si un groupement est actif, les cartes sont dans les pages du classeur
-  const cards = container.dataset.binderMode === 'active'
-    ? Array.from(container.querySelectorAll('.binder-page-wrapper > *')).filter(el =>
-        !el.classList.contains('binder-placeholder') && !el.classList.contains('binder-page-label'))
-    : Array.from(container.children);
-
-  return cards.map(card => {
-    const nameEl = card.querySelector('.font-bold');
-    const name = nameEl ? nameEl.textContent.trim() : '';
-    const codeEl = card.querySelector('span.min-w-fit.text-xs.text-muted-foreground.font-bold');
-    const code = codeEl ? codeEl.textContent.trim() : '';
-    const img = card.querySelector('img[class*="aspect-"]');
-    const owned = img ? !img.classList.contains('grayscale-100') : false;
-    return name && code ? { name, code, owned } : null;
-  }).filter(Boolean);
+// Format "liste d'achat" Cardmarket : 1 Nom (Extension)
+function cardmarketLine(card, game) {
+  if (game === 'yugioh') return `1 ${card.name} (${card.code.split('-')[0]})`;
+  // Pokémon : le code est "012/128", sans code d'extension ; on utilise le nom de l'extension
+  return card.setName ? `1 ${card.name} (${card.setName})` : `1 ${card.name}`;
 }
 
 async function copyCards(mode) {
   try {
-    const result = await runOnTab(CARDS_URL, 'Cette fonction fonctionne uniquement sur la page des cartes', extractCardData, [CARDS_SELECTOR]);
-    if (!result) return;
+    const res = await runOnTab(CARDS_URL, 'Cette fonction fonctionne uniquement sur la page des cartes', extractCardData, [CARDS_SELECTOR]);
+    if (!res) return;
 
-    let cards = result.result;
+    let cards = res.value.data;
     if (!cards || cards.length === 0) { showStatus('Aucune carte trouvée', true); return; }
 
     if (mode === 'missing' || mode === 'cardmarket') {
       cards = cards.filter(c => !c.owned);
     }
 
-    if (cards.length === 0) { showStatus('Aucune carte manquante !', false); return; }
+    if (cards.length === 0) { showStatus('Aucune carte manquante !'); return; }
 
-    let lines;
-    if (mode === 'cardmarket') {
-      lines = cards.map(c => `1 ${c.name} (${c.code.split('-')[0]})`);
-    } else {
-      lines = cards.map(c => `${c.name} ${c.code}`);
-    }
+    const lines = mode === 'cardmarket'
+      ? cards.map(c => cardmarketLine(c, res.game))
+      : cards.map(c => `${c.name} ${c.code}`);
 
     await navigator.clipboard.writeText(lines.join('\n'));
     const label = mode === 'all' ? 'cartes' : 'cartes manquantes';
-    showStatus(`✓ ${lines.length} ${label} copiées !`);
+    showStatus(withWarning(`✓ ${lines.length} ${label} copiées !`, res.value));
   } catch (error) {
     showStatus('Erreur: ' + error.message, true);
   }
@@ -383,3 +451,5 @@ document.getElementById('resetGrouping').addEventListener('click', resetGrouping
 document.getElementById('copyCardList').addEventListener('click', () => copyCards('all'));
 document.getElementById('copyMissing').addEventListener('click', () => copyCards('missing'));
 document.getElementById('copyMissingCM').addEventListener('click', () => copyCards('cardmarket'));
+
+refreshBinderState();
