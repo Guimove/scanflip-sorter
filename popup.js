@@ -72,7 +72,7 @@ function extractExtensionsData(selector) {
           const label = fmt.format(new Date(2000, m, 1)).toLowerCase();
           monthMap[strip(label)] = String(m + 1).padStart(2, '0');
         }
-      } catch (e) { /* locale inconnue */ }
+      } catch { /* locale inconnue */ }
     });
   });
 
@@ -371,7 +371,7 @@ async function refreshBinderState() {
     el.textContent = active ? `● Classeur actif (${state.pages} pages)` : '○ Aucun classeur actif';
     el.className = active ? 'active' : '';
     resetBtn.disabled = !active;
-  } catch (error) {
+  } catch {
     el.textContent = '';
     resetBtn.disabled = false;
   }

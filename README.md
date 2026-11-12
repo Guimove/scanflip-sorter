@@ -29,6 +29,18 @@ Sur une page de cartes (/fr/yugioh/cards ou /fr/pokemon/cards) :
 
 Seule la page de résultats affichée est traitée : si les résultats sont paginés, un avertissement s'affiche.
 
+## Développement et CI
+
+```bash
+npm ci
+npm run check   # lint + validation du manifest + zip dans dist/
+```
+
+La CI GitHub Actions lance ces étapes sur chaque push et pull request, et garde le zip en artefact.
+Pour publier une version : mettre à jour `version` dans `manifest.json`, puis pousser un tag `vX.Y` identique. La CI crée alors une release GitHub avec le zip.
+
+Publication automatique sur le Chrome Web Store (optionnelle) : ajouter les secrets `CWS_EXTENSION_ID`, `CWS_CLIENT_ID`, `CWS_CLIENT_SECRET` et `CWS_REFRESH_TOKEN` dans l'environnement GitHub `chrome-web-store`. Sans ces secrets, l'étape est ignorée.
+
 ## Note sur les icônes
 
 L'extension utilise des icônes par défaut. Pour personnaliser :
