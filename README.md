@@ -43,7 +43,7 @@ Publication automatique sur le Chrome Web Store (optionnelle) : ajouter les secr
 
 ### Sécurité de la CI
 
-- Actions épinglées par SHA (`# vX.Y.Z` en commentaire), imposé par le réglage du repo ; seules les actions GitHub officielles sont autorisées.
+- Actions verrouillées par le lockfile `.github/workflows/actions.lock` ([gh-actions-lock](https://github.com/github/gh-actions-lock)) : le runner exécute le commit verrouillé et un job CI vérifie le lockfile. Après tout ajout ou changement d'action : `gh actions-lock`, puis commiter le workflow et le lockfile ensemble. Seules les actions GitHub officielles sont autorisées.
 - `permissions: {}` par défaut, droits minimaux par job, `persist-credentials: false`.
 - `npm ci --ignore-scripts` (et `.npmrc`) : aucun script d'installation (`postinstall`…) n'est exécuté ; versions exactes dans `package.json`.
 - Pas de cache dans la chaîne qui produit le zip publié.
