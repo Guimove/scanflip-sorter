@@ -39,7 +39,17 @@ npm run check   # lint + validation du manifest + zip dans dist/
 La CI GitHub Actions lance ces étapes sur chaque push et pull request, et garde le zip en artefact.
 Pour publier une version : mettre à jour `version` dans `manifest.json`, puis pousser un tag `vX.Y` identique. La CI crée alors une release GitHub avec le zip.
 
-Publication automatique sur le Chrome Web Store (optionnelle) : ajouter les secrets `CWS_EXTENSION_ID`, `CWS_CLIENT_ID`, `CWS_CLIENT_SECRET` et `CWS_REFRESH_TOKEN` dans l'environnement GitHub `chrome-web-store`. Sans ces secrets, l'étape est ignorée.
+Publication automatique sur le Chrome Web Store (optionnelle) : ajouter les secrets `CWS_EXTENSION_ID`, `CWS_PUBLISHER_ID`, `CWS_CLIENT_ID`, `CWS_CLIENT_SECRET` et `CWS_REFRESH_TOKEN` dans l'environnement GitHub `chrome-web-store`. Cet environnement n'accepte que les tags `v*` et demande une approbation manuelle. Sans ces secrets, l'étape est ignorée.
+
+### Sécurité de la CI
+
+- Actions épinglées par SHA (`# vX.Y.Z` en commentaire), imposé par le réglage du repo ; seules les actions GitHub officielles sont autorisées.
+- `permissions: {}` par défaut, droits minimaux par job, `persist-credentials: false`.
+- `npm ci --ignore-scripts` (et `.npmrc`) : aucun script d'installation (`postinstall`…) n'est exécuté ; versions exactes dans `package.json`.
+- Pas de cache dans la chaîne qui produit le zip publié.
+- Audit [zizmor](https://zizmor.sh/) à chaque push : `pipx run zizmor==1.32.0 --persona=pedantic .github/workflows`.
+- Dependabot avec un délai de 7 jours avant de proposer une nouvelle version.
+- Tags `v*` et releases immuables, `main` protégée contre la suppression et le force-push.
 
 ## Note sur les icônes
 

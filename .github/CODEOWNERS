@@ -1,0 +1,5 @@
+# Toute modification de la CI ou des dépendances doit être revue par le propriétaire
+* @Guimove
+/.github/ @Guimove
+/package.json @Guimove
+/package-lock.json @Guimove
